@@ -32,6 +32,14 @@ class TestBacktraceSuppression < Rake::TestCase # :nodoc:
 
     assert_equal paths, actual
   end
+
+  def test_ruby_array_each_suppressed
+    paths = ["<internal:array>:52:in 'Array#each'"]
+
+    actual = Rake::Backtrace.collapse(paths)
+
+    assert_equal [], actual
+  end
 end
 
 class TestRakeBacktrace < Rake::TestCase # :nodoc:
@@ -40,7 +48,7 @@ class TestRakeBacktrace < Rake::TestCase # :nodoc:
   def setup
     super
 
-    skip "tmpdir is suppressed in backtrace" if
+    omit "tmpdir is suppressed in backtrace" if
       Rake::Backtrace::SUPPRESS_PATTERN =~ Dir.pwd
   end
 
