@@ -56,7 +56,7 @@ class TestRakeFileUtils < Rake::TestCase # :nodoc:
   end
 
   def test_ln
-    open("a", "w") { |f| f.puts "TEST_LN" }
+    File.write("a", "TEST_LN\n")
 
     Rake::FileUtilsExt.safe_ln("a", "b", verbose: false)
 
@@ -129,7 +129,7 @@ class TestRakeFileUtils < Rake::TestCase # :nodoc:
   def test_file_utils_methods_are_available_at_top_level
     create_file("a")
 
-    capture_io do
+    capture_output do
       rm_rf "a"
     end
 
@@ -171,7 +171,7 @@ class TestRakeFileUtils < Rake::TestCase # :nodoc:
   end
 
   def test_sh_with_multiple_arguments
-    skip if jruby9? # https://github.com/jruby/jruby/issues/3653
+    omit if jruby9? # https://github.com/jruby/jruby/issues/3653
 
     check_no_expansion
     ENV["RAKE_TEST_SH"] = "someval"
@@ -182,7 +182,7 @@ class TestRakeFileUtils < Rake::TestCase # :nodoc:
   end
 
   def test_sh_with_spawn_options
-    skip "JRuby does not support spawn options" if jruby?
+    omit "JRuby does not support spawn options" if jruby?
 
     echocommand
 
@@ -198,7 +198,7 @@ class TestRakeFileUtils < Rake::TestCase # :nodoc:
   end
 
   def test_sh_with_hash_option
-    skip "JRuby does not support spawn options" if jruby?
+    omit "JRuby does not support spawn options" if jruby?
     check_expansion
 
     verbose(false) {
@@ -243,7 +243,7 @@ class TestRakeFileUtils < Rake::TestCase # :nodoc:
   def test_sh_bad_option
     # Skip on JRuby because option checking is performed by spawn via system
     # now.
-    skip "JRuby does not support spawn options" if jruby?
+    omit "JRuby does not support spawn options" if jruby?
 
     shellcommand
 
@@ -256,7 +256,7 @@ class TestRakeFileUtils < Rake::TestCase # :nodoc:
   def test_sh_verbose
     shellcommand
 
-    _, err = capture_io do
+    _, err = capture_output do
       verbose(true) {
         sh %{shellcommand.rb}, noop: true
       }
@@ -268,7 +268,7 @@ class TestRakeFileUtils < Rake::TestCase # :nodoc:
   def test_sh_verbose_false
     shellcommand
 
-    _, err = capture_io do
+    _, err = capture_output do
       verbose(false) {
         sh %{shellcommand.rb}, noop: true
       }
@@ -282,9 +282,10 @@ class TestRakeFileUtils < Rake::TestCase # :nodoc:
 
     RakeFileUtils.verbose_flag = nil
 
-    assert_silent do
+    out, _ = capture_output do
       sh %{shellcommand.rb}, noop: true
     end
+    assert_empty out
   end
 
   def test_ruby_with_a_single_string_argument
@@ -341,6 +342,36 @@ class TestRakeFileUtils < Rake::TestCase # :nodoc:
     end
   end
 
+  # Originally copied from minitest/assertions.rb
+  def capture_subprocess_io
+    begin
+      require "tempfile"
+
+      captured_stdout = Tempfile.new("out")
+      captured_stderr = Tempfile.new("err")
+
+      orig_stdout = $stdout.dup
+      orig_stderr = $stderr.dup
+      $stdout.reopen captured_stdout
+      $stderr.reopen captured_stderr
+
+      yield
+
+      $stdout.rewind
+      $stderr.rewind
+
+      [captured_stdout.read, captured_stderr.read]
+    ensure
+      $stdout.reopen orig_stdout
+      $stderr.reopen orig_stderr
+
+      orig_stdout.close
+      orig_stderr.close
+      captured_stdout.close!
+      captured_stderr.close!
+    end
+  end
+
   def assert_echoes_fully
     long_string = "1234567890" * 10
     shell_command = "ruby -e\"'#{long_string}';exit false\""
@@ -357,7 +388,7 @@ class TestRakeFileUtils < Rake::TestCase # :nodoc:
   end
 
   def test_ruby_with_multiple_arguments
-    skip if jruby9? # https://github.com/jruby/jruby/issues/3653
+    omit if jruby9? # https://github.com/jruby/jruby/issues/3653
 
     check_no_expansion
 
@@ -379,48 +410,46 @@ class TestRakeFileUtils < Rake::TestCase # :nodoc:
   end
 
   def command(name, text)
-    open name, "w", 0750 do |io|
-      io << text
-    end
+    File.write(name, text)
   end
 
   def check_no_expansion
-    command "check_no_expansion.rb", <<-CHECK_EXPANSION
-if ARGV[0] != ARGV[1]
-  exit 0
-else
-  exit 1
-end
+    command "check_no_expansion.rb", <<~CHECK_EXPANSION
+      if ARGV[0] != ARGV[1]
+        exit 0
+      else
+        exit 1
+      end
     CHECK_EXPANSION
   end
 
   def check_environment
-    command "check_environment.rb", <<-CHECK_ENVIRONMENT
-if ENV[ARGV[0]] != ARGV[1]
-  exit 1
-else
-  exit 0
-end
+    command "check_environment.rb", <<~CHECK_ENVIRONMENT
+      if ENV[ARGV[0]] != ARGV[1]
+        exit 1
+      else
+        exit 0
+      end
     CHECK_ENVIRONMENT
   end
 
   def check_expansion
-    command "check_expansion.rb", <<-CHECK_EXPANSION
-if ARGV[0] != ARGV[1]
-  exit 1
-else
-  exit 0
-end
+    command "check_expansion.rb", <<~CHECK_EXPANSION
+      if ARGV[0] != ARGV[1]
+        exit 1
+      else
+        exit 0
+      end
     CHECK_EXPANSION
   end
 
   def echocommand
-    command "echocommand.rb", <<-ECHOCOMMAND
-#!/usr/bin/env ruby
+    command "echocommand.rb", <<~ECHOCOMMAND
+      #!/usr/bin/env ruby
 
-puts "echocommand.rb"
+      puts "echocommand.rb"
 
-exit 0
+      exit 0
     ECHOCOMMAND
   end
 
@@ -435,10 +464,10 @@ exit 0
   end
 
   def shellcommand
-    command "shellcommand.rb", <<-SHELLCOMMAND
-#!/usr/bin/env ruby
+    command "shellcommand.rb", <<~SHELLCOMMAND
+      #!/usr/bin/env ruby
 
-exit((ARGV[0] || "0").to_i)
+      exit((ARGV[0] || "0").to_i)
     SHELLCOMMAND
   end
 
