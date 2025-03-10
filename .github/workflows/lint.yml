@@ -2,13 +2,16 @@ name: lint
 
 on: [push, pull_request]
 
+permissions:  # added using https://github.com/step-security/secure-workflows
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-    - uses: actions/checkout@v3
-    - uses: ruby/setup-ruby@v1
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v3.3.0
+    - uses: ruby/setup-ruby@277ba2a127aba66d45bad0fa2dc56f80dbfedffa # v1.222.0
       with:
         ruby-version: '3.0'
         bundler-cache: true

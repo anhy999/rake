@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 # Rake DSL functions.
-require "rake/file_utils_ext"
+require_relative "file_utils_ext"
 
 module Rake
 
@@ -90,6 +90,7 @@ module Rake
     #   directory "testdata/doc"
     #
     def directory(*args, &block) # :doc:
+      args = args.flat_map { |arg| arg.is_a?(FileList) ? arg.to_a.flatten : arg }
       result = file_create(*args, &block)
       dir, _ = *Rake.application.resolve_args(args)
       dir = Rake.from_pathname(dir)
@@ -145,7 +146,7 @@ module Rake
     #
     # Example:
     #  rule '.o' => '.c' do |t|
-    #    sh 'cc', '-o', t.name, t.source
+    #    sh 'cc', '-c', '-o', t.name, t.source
     #  end
     #
     def rule(*args, &block) # :doc:
@@ -158,7 +159,7 @@ module Rake
     #
     # Example:
     #   desc "Run the Unit Tests"
-    #   task test: [:build]
+    #   task test: [:build] do
     #     # ... run tests
     #   end
     #
